@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const ProductReviewSchema = new mongoose.Schema(
   {
-    productId: String,
+    phoneId:String,
     userId: String,
     userName: String,
     reviewMessage: String,

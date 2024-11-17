@@ -1,4 +1,4 @@
-const Product = require("../../models/Product");
+const Phone = require("../../models/Phone");
 
 const searchProducts = async (req, res) => {
   try {
@@ -14,14 +14,14 @@ const searchProducts = async (req, res) => {
 
     const createSearchQuery = {
       $or: [
-        { title: regEx },
-        { description: regEx },
-        { category: regEx },
-        { brand: regEx },
+        { phone_brand: regEx },
+        { phone_name: regEx },
       ],
     };
 
-    const searchResults = await Product.find(createSearchQuery);
+    console.log(createSearchQuery)
+    const searchResults = await Phone.find(createSearchQuery);
+    console.log(searchResults)
 
     res.status(200).json({
       success: true,

@@ -1,75 +1,98 @@
-  const { imageUploadUtil } = require("../../helpers/cloudinary");
-  const Phone = require("../../models/Phone");
-  const Specs = require("../../models/Specs");
-  const PhoneCat = require("../../models/PhoneCat");
-  const PhoneImg = require("../../models/PhoneImg");
-  const Product = require("../../models/Product");
+const { imageUploadUtil } = require("../../helpers/cloudinary");
+const Phone = require("../../models/Phone");
+const Specs = require("../../models/Specs");
+// const PhoneCat = require("../../models/PhoneCat");
+const PhoneImg = require("../../models/PhoneImg");
+const { IncomingForm } = require('formidable');
+const cloudinary = require('cloudinary').v2;
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET // Replace with your Cloudinary API secret
+});
 
-  const handleImageUpload = async (req, res) => {
-    try {
-      const b64 = Buffer.from(req.file.buffer).toString("base64");
-      const url = "data:" + req.file.mimetype + ";base64," + b64;
-      const result = await imageUploadUtil(url);
-      res.json({
-        success: true,
-        result,
-      });
-    } catch (error) {
-      console.log(error);
-      res.json({
-        success: false,
-        message: "Error occured",
-      });
+const handleImageUpload = async (req, res) => {
+  const form = new IncomingForm({ multiples: true }); // Enable multiple file uploads
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
     }
-  };
+
+    const imageUrls = [];
+    const uploadPromises = [];
+
+    // Check if there are any uploaded files
+    if (files && Object.keys(files).length > 0) {
+      // Iterate through the uploaded files
+      for (const [key, file] of Object.entries(files)) {
+        const filesToUpload = Array.isArray(file) ? file : [file];
+        for (const f of filesToUpload) {
+          uploadPromises.push(
+            cloudinary.uploader.upload(f.filepath, {
+              // folder: 'uploads', // Optional: specify a Cloudinary folder
+            })
+          );
+        }
+      }
+
+      try {
+        const uploadResults = await Promise.all(uploadPromises);
+        uploadResults.forEach((result) => {
+          imageUrls.push(result.secure_url);
+        });
+
+        res.status(200).json({ message: 'Images uploaded successfully', imageUrls });
+      } catch (uploadError) {
+        res.status(500).json({ error: uploadError.message });
+      }
+    } else {
+      return res.status(400).json({ message: 'No images provided' });
+    }
+  });
+};
 
 const addProduct = async (req, res) => {
   try {
     const {
-      image, // Array of image URLs
+      images, // Array of image URLs
       brand, mobilename, // Phone details
       display, processor, antutu, sensor, mp, battery, rr, speaker, // Phone specs
-      ram, storage, color, price,saleprice ,totalStock // Phone category details
+      ram, storage, color, price, saleprice, totalStock // Phone category details
     } = req.body;
+
+    if (!images || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one image is required",
+      });
+    }
 
     // Create a new Phone document
     const newPhone = new Phone({
       phone_brand: brand,
       phone_name: mobilename,
-      phone_img: image ,
-      ram:ram,
-      storage:storage,
-      originalprice:price,
-      saleprice:saleprice,
+      storage: storage,
+      originalprice: price,
+      saleprice: saleprice,
       stock: totalStock,
-      color:color// Use the first image as the main image
+      color: color
     });
 
     const savedPhone = await newPhone.save();
 
-    // // Create a new PhoneCat document
-    // const newPhoneCat = new PhoneCat({
-    //   phoneId: savedPhone._id,
-    //   ram,
-    //   storage,
-    //   price,
-    //   stock: totalStock,
-    //   color
-    // });
-
-    // const savedPhoneCat = await newPhoneCat.save();
-
     // Create PhoneImg documents for multiple images
-    // const phoneImages = images.slice(1); // Exclude the first image as it's already used as the main image
-    // for (let img of phoneImages) {
-    //   const newPhoneImg = new PhoneImg({
-    //     phonecatId: savedPhoneCat._id,
-    //     color,
-    //     img
-    //   });
-    //   await newPhoneImg.save();
-    // }
+    const phoneImages = images; // Exclude the first image as it's already used as the main image
+    const phoneImgPromises = phoneImages.map(img => {
+      const newPhoneImg = new PhoneImg({
+        phoneId: savedPhone._id,
+        color,
+        img
+      });
+      return newPhoneImg.save();
+    });
+
+    await Promise.all(phoneImgPromises);
 
     // Create a new Specs document
     const newSpecs = new Specs({
@@ -91,8 +114,7 @@ const addProduct = async (req, res) => {
       message: "Product created successfully",
       data: {
         phone: savedPhone,
-        // category: savedPhoneCat,
-        // images: phoneImages,
+        images: [savedPhone.phone_img, ...phoneImages],
         specs: newSpecs
       }
     });
@@ -107,161 +129,264 @@ const addProduct = async (req, res) => {
 
 
 
-  const fetchAllProducts = async (req, res) => {
-    try {
-      const listOfProducts = await Phone.find({});
-      res.status(200).json({
-        success: true,
-        data: listOfProducts,
-      });
-    } catch (e) {
-      console.log(e);
-      res.status(500).json({
+const fetchAllProducts = async (req, res) => {
+  try {
+    const listOfProducts = await Phone.aggregate([
+      {
+        $lookup: {
+          from: "specs", // Collection name for Specs
+          localField: "_id",
+          foreignField: "phoneId",
+          as: "specs",
+        },
+      },
+      {
+        $lookup: {
+          from: "phone_imgs", // Collection name for PhoneImg
+          localField: "_id",
+          foreignField: "phoneId",
+          as: "images",
+        },
+      }
+    ]);
+    res.status(200).json({
+      success: true,
+      data: listOfProducts,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).json({
+      success: false,
+      message: "Error occurred",
+    });
+  }
+};
+
+
+const editProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      phone_brand,
+      phone_name,
+      phone_img,
+      ram,
+      storage,
+      originalprice,
+      saleprice,
+      stock,
+      color,
+      specs,
+      additionalImages = []
+    } = req.body;
+
+    // Find the phone by ID
+    const phone = await Phone.findById(id);
+    if (!phone) {
+      return res.status(404).json({
         success: false,
-        message: "Error occured",
+        message: "Phone not found",
       });
     }
-  };
 
-  // const editProduct = async (req, res) => {
-  //   try {
-  //     const { id } = req.params;
-  //     const {
-  //       image, // Phone images
-  //       brand, mobilename, // Phone details
-  //       display, processor, antutu, sensor, mp, battery, rr, speaker, // Phone specs
-  //       ram, storage, color, price, totalStock // Phone category details
-  //     } = req.body;
+    // Update the Phone document
+    phone.phone_brand = phone_brand || phone.phone_brand;
+    phone.phone_name = phone_name || phone.phone_name;
+    phone.phone_img = phone_img || phone.phone_img;
+    phone.ram = ram || phone.ram;
+    phone.storage = storage || phone.storage;
+    phone.originalprice = originalprice || phone.originalprice;
+    phone.saleprice = saleprice || phone.saleprice;
+    phone.stock = stock || phone.stock;
+    phone.color = color || phone.color;
 
-  //     // Find the phone by ID
-  //     const phone = await Phone.findById(id);
-  //     if (!phone) {
-  //       return res.status(404).json({
-  //         success: false,
-  //         message: "Phone not found",
-  //       });
-  //     }
+    const updatedPhone = await phone.save();
 
-  //     // Update the Phone document
-  //     phone.phone_brand = brand || phone.phone_brand;
-  //     phone.phone_name = mobilename || phone.phone_name;
-  //     phone.phone_img = image || phone.phone_img;
+    // Update or create the Specs document
+    let specsDoc = await Specs.findOne({ phoneId: updatedPhone._id });
+    if (!specsDoc) {
+      specsDoc = new Specs({ phoneId: updatedPhone._id });
+    }
 
-  //     const updatedPhone = await phone.save(); // Save the updated phone
+    specsDoc.display_type = specs.display_type || specsDoc.display_type;
+    specsDoc.processor = specs.processor || specsDoc.processor;
+    specsDoc.antutuscore = specs.antutuscore || specsDoc.antutuscore;
+    specsDoc.camera_sensor = specs.camera_sensor || specsDoc.camera_sensor;
+    specsDoc.camera_mp = specs.camera_mp || specsDoc.camera_mp;
+    specsDoc.battery_cap = specs.battery_cap || specsDoc.battery_cap;
+    specsDoc.refresh_rate = specs.refresh_rate || specsDoc.refresh_rate;
+    specsDoc.speaker = specs.speaker || specsDoc.speaker;
 
-  //     // Find or create the PhoneCat document
-  //     // let phoneCat = await PhoneCat.findOne({ phoneId: id });
-  //     // if (!phoneCat) {
-  //     //   phoneCat = new PhoneCat({
-  //     //     phoneId: updatedPhone._id,
-  //     //   });
-  //     // }
+    const updatedSpecs = await specsDoc.save();
 
-  //     // phoneCat.ram = ram || phoneCat.ram;
-  //     // phoneCat.storage = storage || phoneCat.storage;
-  //     // phoneCat.price = price || phoneCat.price;
-  //     // phoneCat.stock = totalStock || phoneCat.stock;
-  //     // phoneCat.color = color || phoneCat.color;
+    // Remove existing PhoneImg documents for this phone
+    await PhoneImg.deleteMany({ phoneId: updatedPhone._id });
 
-  //     // const updatedPhoneCat = await phoneCat.save(); // Save the updated phone category
+    // Add new PhoneImg documents for each additional image
+    if (additionalImages.length > 0) {
+      const phoneImages = additionalImages.map((img) => ({
+        phoneId: updatedPhone._id,
+        color: color, // Assuming color is the same for each additional image, modify as needed
+        img: img,
+      }));
+      await PhoneImg.insertMany(phoneImages);
+    }
 
-  //     // // Remove existing PhoneImg documents
-  //     // await PhoneImg.deleteMany({ phonecatId: updatedPhoneCat._id });
+    res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      data: {
+        phone: updatedPhone,
+        specs: updatedSpecs,
+        images: additionalImages,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Error occurred while updating the product",
+    });
+  }
+};
 
-  //     // // Create or update PhoneImg documents for multiple images
-  //     // const phoneImages = [image2, image3, image4, image5].filter(img => img);
-  //     // for (let img of phoneImages) {
-  //     //   const newPhoneImg = new PhoneImg({
-  //     //     phonecatId: updatedPhoneCat._id,
-  //     //     color,
-  //     //     img
-  //     //   });
-  //     //   await newPhoneImg.save(); // Save each image
-  //     // }
+// const editProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const 
+//     // const {
 
-  //     // Find or create the Specs document
-  //     let specs = await Specs.findOne({ phoneId: id });
-  //     if (!specs) {
-  //       specs = new Specs({
-  //         phoneId: updatedPhone._id,
-  //       });
-  //     }
+//     //   images, // Array of image URLs
+//     //   brand, mobilename, // Phone details
+//     //   display, processor, antutu, sensor, mp, battery, rr, speaker, // Phone specs
+//     //   ram, storage, color, price, saleprice, totalStock // Phone category details
+//     // } = req.body;
 
-  //     specs.display_type = display || specs.display_type;
-  //     specs.processor = processor || specs.processor;
-  //     specs.antutuscore = antutu || specs.antutuscore;
-  //     specs.camera_sensor = sensor || specs.camera_sensor;
-  //     specs.camera_mp = mp || specs.camera_mp;
-  //     specs.battery_cap = battery || specs.battery_cap;
-  //     specs.refresh_rate = rr || specs.refresh_rate;
-  //     specs.speaker = speaker || specs.speaker;
+//     // console.log("images : ",images)
+//     // console.log("brand : ",brand)
+//     // console.log("name : ",mobilename)
+//     // console.log("name : ",display)
+//     // console.log("name : ",processor)
+//     // console.log("name : ",antutu)
+//     // console.log("name : ",sensor)
+//     // console.log("name : ",mp)
+//     // console.log("name : ",battery)
+//     // console.log("name : ",rr)
+//     // console.log("name : ",speaker)
+//     // console.log("name : ",ram)
+//     // console.log("name : ",storage)
+//     // console.log("name : ",color)
+//     // console.log("name : ",price)
+//     // console.log("name : ",saleprice)
+//     // console.log("name : ",totalStock)
+//     // Find the phone by ID
+//     const phone = await Phone.findById(id);
+//     if (!phone) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Phone not found",
+//       });
+//     }
 
-  //     const updatedSpecs = await specs.save(); // Save the updated specs
-
-  //     res.status(200).json({
-  //       success: true,
-  //       message: "Product updated successfully",
-  //       data: {
-  //         phone: updatedPhone,
-  //         category: updatedPhoneCat,
-  //         images: phoneImages,
-  //         specs: updatedSpecs
-  //       }
-  //     });
-  //   } catch (error) {
-  //     console.error(error);
-  //     res.status(500).json({
-  //       success: false,
-  //       message: "Error occurred while updating the product",
-  //     });
-  //   }
-  // };
+//     // Update the Phone document
+//     phone.phone_brand = brand || phone.phone_brand;
+//     phone.phone_name = mobilename || phone.phone_name;
+//     phone.phone_img = images[0] || phone.phone_img;
+//     phone.ram = ram || phone.ram;
+//     phone.storage = storage || phone.storage;
+//     phone.originalprice = price || phone.originalprice;
+//     phone.saleprice = saleprice || phone.saleprice;
+//     phone.stock = totalStock || phone.stock;
+//     phone.color = color || phone.color;
 
 
-  const deleteProduct = async (req, res) => {
-    try {
-      const { id } = req.params;
+//     const updatedPhone = await phone.save(); // Save the updated phone
 
-      // Find and delete the Product document
-      const product = await Phone.findById(id);
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found",
-        });
-      }
+//     // Find or create the PhoneCat document
 
-      // Find and delete the associated Phone document
-      const phone = await Phone.findOneAndDelete({ _id: product.phoneId });
+//     // Remove existing PhoneImg documents
 
-      if (phone) {
-        // Delete associated PhoneCat documents
-        // await PhoneCat.deleteMany({ phoneId: phone._id });
+//     // Find or create the Specs document
+//     const specs = await Specs.findOne({ phoneId: phone._id });
+//     if (!specs) {
+//       specs = new Specs({
+//         phoneId: updatedPhone._id,
+//       });
+//     }
 
-        // Delete associated PhoneImg documents
-        await Specs.deleteMany({ phoneId: product._id });
-      }
+//     specs.display_type = display || specs.display_type;
+//     specs.processor = processor || specs.processor;
+//     specs.antutuscore = antutu || specs.antutuscore;
+//     specs.camera_sensor = sensor || specs.camera_sensor;
+//     specs.camera_mp = mp || specs.camera_mp;
+//     specs.battery_cap = battery || specs.battery_cap;
+//     specs.refresh_rate = rr || specs.refresh_rate;
+//     specs.speaker = speaker || specs.speaker;
 
-      // Delete the Product document
-      await Phone.findByIdAndDelete(id);
+//     const updatedSpecs = await specs.save(); // Save the updated specs
 
-      res.status(200).json({
-        success: true,
-        message: "Product and related data deleted successfully",
-      });
-    } catch (e) {
-      console.error(e); // Changed from `console.log` to `console.error` for better error logging
-      res.status(500).json({
+//     res.status(200).json({
+//       success: true,
+//       message: "Product updated successfully",
+//       data: {
+//         phone: updatedPhone,
+//         specs: updatedSpecs
+//       }
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error occurred while updating the product",
+//     });
+//   }
+// };
+
+
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find and delete the Product document
+    const product = await Phone.findById(id);
+    if (!product) {
+      return res.status(404).json({
         success: false,
-        message: "Error occurred while deleting the product",
+        message: "Product not found",
       });
     }
-  };
 
-  module.exports = {
-    handleImageUpload,
-    addProduct,
-    fetchAllProducts,
-    // editProduct,
-    deleteProduct,
-  };
+    // Find and delete the associated Phone document
+    const phone = await Phone.findOneAndDelete({ _id: product.phoneId });
+
+    if (phone) {
+      // Delete associated PhoneCat documents
+      // await PhoneCat.deleteMany({ phoneId: phone._id });
+
+      // Delete associated PhoneImg documents
+      await Specs.deleteMany({ phoneId: product._id });
+    }
+
+    // Delete the Product document
+    await Phone.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Product and related data deleted successfully",
+    });
+  } catch (e) {
+    console.error(e); // Changed from console.log to console.error for better error logging
+    res.status(500).json({
+      success: false,
+      message: "Error occurred while deleting the product",
+    });
+  }
+};
+
+module.exports = {
+  handleImageUpload,
+  addProduct,
+  fetchAllProducts,
+  editProduct,
+  deleteProduct,
+};

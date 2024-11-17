@@ -5,11 +5,18 @@ const OrderSchema = new mongoose.Schema({
   cartId: String,
   cartItems: [
     {
-      productId: String,
-      title: String,
-      image: String,
-      price: String,
-      quantity: Number,
+      phoneId: {
+        type: String,
+      },
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1,
+      },
+      amount: {
+        type: Number,
+        required: true,
+      },
     },
   ],
   addressInfo: {

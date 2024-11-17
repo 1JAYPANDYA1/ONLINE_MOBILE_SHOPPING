@@ -1,56 +1,56 @@
-const Product = require("../../models/Product");
+const Phone = require("../../models/Phone");
+const PhoneImg = require("../../models/PhoneImg");
+const Specs = require("../../models/Specs");
 
 const getFilteredProducts = async (req, res) => {
   try {
-    const { category = [], brand = [], sortBy = "price-lowtohigh" } = req.query;
+    const { phone_brand, color, sortBy } = req.query;
 
     let filters = {};
 
-    if (category.length) {
-      filters.category = { $in: category.split(",") };
+    // Filtering by brand
+    if (phone_brand) {
+      filters.phone_brand = { $in: phone_brand.split(",") };
     }
 
-    if (brand.length) {
-      filters.brand = { $in: brand.split(",") };
+    // Filtering by color
+    if (color) {
+      filters.color = { $in: color.split(",") };
     }
 
+    // Sorting logic
     let sort = {};
 
     switch (sortBy) {
-      case "price-lowtohigh":
-        sort.price = 1;
-
+      case "saleprice-lowtohigh":
+        sort.saleprice = 1;
         break;
-      case "price-hightolow":
-        sort.price = -1;
-
+      case "saleprice-hightolow":
+        sort.saleprice = -1;
         break;
-      case "title-atoz":
-        sort.title = 1;
-
+      case "phone_name-atoz":
+        sort.phone_name = 1;
         break;
-
-      case "title-ztoa":
-        sort.title = -1;
-
+      case "phone_name-ztoa":
+        sort.phone_name = -1;
         break;
-
       default:
-        sort.price = 1;
+        sort.saleprice = 1;
         break;
     }
 
-    const products = await Product.find(filters).sort(sort);
-
+    // Fetch filtered and sorted products
+    const products = await Phone.find(filters).sort(sort);
+    console.log(products)
     res.status(200).json({
       success: true,
       data: products,
     });
-  } catch (e) {
-    console.log(error);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: "Some error occurred",
     });
   }
 };
@@ -58,25 +58,41 @@ const getFilteredProducts = async (req, res) => {
 const getProductDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await Product.findById(id);
+    // console.log("i am reached : ",id)
+    const product = await Phone.findById(id);
 
-    if (!product)
+    if (!product) {
       return res.status(404).json({
         success: false,
         message: "Product not found!",
       });
-
+    }
     res.status(200).json({
       success: true,
-      data: product,
+      data:product,
     });
-  } catch (e) {
-    console.log(error);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: "Some error occurred",
     });
   }
 };
 
-module.exports = { getFilteredProducts, getProductDetails };
+const getPhoneDetails = async (req, res) => {
+  const { phoneId } = req.params;
+  console.log("in asdf")
+  try {
+    const phone = await Phone.findById(phoneId);
+    const images = await PhoneImg.find({ phoneId:phoneId });
+    const specs = await Specs.findOne({ phoneId });
+
+    if (!phone) return res.status(404).json({ message: "Phone not found" });
+    console.log("my response : ",{phone,images,specs})
+    return res.json({ phone, images, specs });
+  } catch (error) {
+    return res.status(500).json({ message: "Server error", error });
+  }
+};
+module.exports = { getFilteredProducts, getProductDetails,getPhoneDetails };

@@ -2,12 +2,12 @@ const mongoose = require("mongoose");
 
 const PhoneImgSchema = new mongoose.Schema(
     {
-        phonecatId: {
+        phoneId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "phone_cat",
+            ref: "phone",
             required: true,
-        },
-        color: { type: String, ref: 'phone_cat', required: true },
+        }, 
+        color:String,
         img: String,
     },
     { timestamps: true }

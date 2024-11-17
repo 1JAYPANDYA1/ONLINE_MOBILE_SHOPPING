@@ -2,12 +2,13 @@ const Thumbnail = require("../../models/Thumbnail");
 
 const addThumbnailImage = async (req, res) => {
   try {
-    const { image } = req.body;
+    const image  = req.body;
 
     console.log(image, "image");
+    const img=image.image
 
     const ThumbnailImages = new Thumbnail({
-      image,
+     image: img,
     });
 
     await ThumbnailImages.save();
