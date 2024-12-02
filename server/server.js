@@ -2,6 +2,7 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const connectDB = require("./config/db");
+const dotenv=require('dotenv')
 
 const authRouter = require("./routes/auth/auth-routes");
 const adminProductsRouter = require("./routes/admin/products-routes");
@@ -16,6 +17,7 @@ const shopReviewRouter = require("./routes/shop/review-routes");
 
 const commonThumbnailRouter = require("./routes/common/Thumbnail-routes");
 
+dotenv.config()
 connectDB();
 
 const app = express();

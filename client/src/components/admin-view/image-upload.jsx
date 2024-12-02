@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function ProductImageUpload({
-  imageFiles = [],
+  imageFiles,
   setImageFiles,
-  uploadedImageUrls = [],
+  uploadedImageUrls,
   setUploadedImageUrls,
   imageLoadingState = false,
   setImageLoadingState,
@@ -19,9 +19,9 @@ function ProductImageUpload({
   const inputRef = useRef(null);
   const [currentUploadIndex, setCurrentUploadIndex] = useState(0);
 
+  
   useEffect(() => {
     if (imageFiles.length > 0 && currentUploadIndex < imageFiles.length) {
-      // Trigger a single upload
       uploadImage();
     }
   }, [currentUploadIndex]);
@@ -44,7 +44,9 @@ function ProductImageUpload({
 
   function handleImageFileChange(event) {
     const selectedFiles = Array.from(event.target.files).slice(0, 5);
+    console.log("selected images : ",selectedFiles)
     setImageFiles(selectedFiles);
+    console.log("images files : ",imageFiles)
     setCurrentUploadIndex(0);  // Reset index for new uploads
   }
 
@@ -82,7 +84,6 @@ function ProductImageUpload({
           },
         }
       );
-      conso
       if (response?.data?.success) {
         console.log("Upload successful", response.data.url);
         return response.data.url;
@@ -107,7 +108,7 @@ function ProductImageUpload({
           multiple
           onChange={handleImageFileChange}
           className="hidden"
-        />z
+        />
         <div className="flex flex-col items-center justify-center space-y-3">
           <UploadCloudIcon className="w-10 h-10 text-gray-400" />
           <p className="text-gray-500">Drag and drop or click to upload images</p>

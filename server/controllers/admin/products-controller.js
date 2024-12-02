@@ -5,6 +5,9 @@ const Specs = require("../../models/Specs");
 const PhoneImg = require("../../models/PhoneImg");
 const { IncomingForm } = require('formidable');
 const cloudinary = require('cloudinary').v2;
+const dotenv = require('dotenv')
+
+dotenv.config()
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -12,7 +15,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET // Replace with your Cloudinary API secret
 });
 
+
 const handleImageUpload = async (req, res) => {
+  console.log("upload the image")
   const form = new IncomingForm({ multiples: true }); // Enable multiple file uploads
   form.parse(req, async (err, fields, files) => {
     if (err) {
@@ -160,7 +165,7 @@ const fetchAllProducts = async (req, res) => {
       message: "Error occurred",
     });
   }
-};
+}
 
 
 const editProduct = async (req, res) => {
@@ -231,7 +236,7 @@ const editProduct = async (req, res) => {
       }));
       await PhoneImg.insertMany(phoneImages);
     }
-
+    console.log("edit : ", updatedPhone)
     res.status(200).json({
       success: true,
       message: "Product updated successfully",

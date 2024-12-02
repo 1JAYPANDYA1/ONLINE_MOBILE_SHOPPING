@@ -34,7 +34,6 @@ function CommonForm({
             value={value || ""}
             onChange={(event) => {
               const newValue = event.target.value;
-              console.log(`Updating ${getControlItem.name} to:`, newValue);
               setFormData(prevData => ({
                 ...prevData,
                 [getControlItem.name]: newValue,
@@ -47,7 +46,6 @@ function CommonForm({
         element = (
           <Select
             onValueChange={(value) => {
-              console.log(`Updating ${getControlItem.name} to:`, value);
               setFormData(prevData => ({
                 ...prevData,
                 [getControlItem.name]: value,
@@ -77,7 +75,6 @@ function CommonForm({
             value={value || ""}
             onChange={(event) => {
               const newValue = event.target.value;
-              console.log(`Updating ${getControlItem.name} to:`, newValue);
               setFormData(prevData => ({
                 ...prevData,
                 [getControlItem.name]: newValue,
@@ -96,7 +93,6 @@ function CommonForm({
             value={value || ""}
             onChange={(event) => {
               const newValue = event.target.value;
-              console.log(`Updating ${getControlItem.name} to:`, newValue);
               setFormData(prevData => ({
                 ...prevData,
                 [getControlItem.name]: newValue,

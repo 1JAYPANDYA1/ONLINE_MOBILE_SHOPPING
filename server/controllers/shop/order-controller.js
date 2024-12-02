@@ -151,8 +151,8 @@ const crypto = require('crypto');
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
-  key_id: 'rzp_test_pVMPiZnpHDsa6g', // Replace with your Razorpay key
-  key_secret: '0ZiI8iZ185Dx20ZY9S1Mck12', // Replace with your Razorpay secret
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 // Controller for creating an order

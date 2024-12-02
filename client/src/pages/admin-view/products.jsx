@@ -56,20 +56,17 @@ function AdminProducts() {
   }, [dispatch]);
 
   const handleImageUpload = useCallback((urls) => {
-    console.log("Uploaded URLs  dekh:", urls); // Check if URLs are logged here
     setUploadedImageUrls(urls);
     setImageLoadingState(false);
   }, []);
 
-
   function onSubmit(event) {
-    console.log("my form data is : ",formData)
     event.preventDefault();
-    // Transform formData to match API structure
+    console.log("i am callling brother ")
     const transformedData = {
       phone_brand: formData.brand,
       phone_name: formData.mobilename,
-      phone_img: formData.phone_img,
+      phone_img: uploadedImageUrls[0] || formData.phone_img,
       specs: {
         display_type: formData.display,
         processor: formData.processor,
@@ -135,38 +132,36 @@ function AdminProducts() {
   }
 
   function isFormValid() {
-    const requiredFields = Object.keys(formData);
-    const allFieldsFilled = requiredFields.every(key => formData[key] !== "");
-    const hasImages = uploadedImageUrls.length > 0;
+    // Modified to be more flexible
+    const requiredFields = [
+      'brand', 'mobilename', 'display', 'processor', 'antutu',
+      'sensor', 'mp', 'battery', 'rr', 'speaker',
+      'ram', 'storage', 'color', 'price', 'saleprice', 'totalStock','images'
+    ];
 
-    console.log("Required fields filled:", allFieldsFilled);
-    console.log("Has images:", hasImages);
-    console.log("Uploaded Image URLs:", uploadedImageUrls);
-    console.log("Form Data:", formData);
+    // Check if all required fields have a value
+    const allFieldsFilled = requiredFields.every(key =>
+      formData[key] !== null && formData[key] !== ""
+    );
+
+    // Check if there's at least one image (either from upload or existing)
+    const hasImages = uploadedImageUrls.length > 0 || formData.phone_img !== "";
 
     return allFieldsFilled && hasImages;
   }
 
-
   function handleEdit(product) {
-    // Extract all the specs fields
     const specs = product.specs[0] || {};
     const images = product.images || [];
 
-    // Create an array of image URLs from the `images` array
     const additionalImages = images.map(image => image.img);
-
-    // Combine `product.phone_img` with `additionalImages`
     const allImages = [product.phone_img, ...additionalImages].filter(Boolean);
 
-    // Create the mapped form data
     const mappedFormData = {
-      // Basic fields
       brand: product.phone_brand || "",
       mobilename: product.phone_name || "",
       phone_img: product.phone_img || "",
 
-      // Specs fields
       display: specs.display_type || "",
       processor: specs.processor || "",
       antutu: specs.antutuscore || specs.antutu || "",
@@ -176,7 +171,6 @@ function AdminProducts() {
       rr: specs.refresh_rate || specs.rr || "",
       speaker: specs.speaker || "",
 
-      // Other direct fields
       ram: product.ram || "",
       storage: product.storage || "",
       color: product.color || "",
@@ -187,10 +181,7 @@ function AdminProducts() {
 
     setCurrentEditedId(product._id);
     setFormData(mappedFormData);
-
-    // Set combined image URLs
     setUploadedImageUrls(allImages);
-
     setOpenCreateProductsDialog(true);
   }
 
